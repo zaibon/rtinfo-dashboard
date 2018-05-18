@@ -10,6 +10,8 @@ import (
 
 	assetfs "github.com/elazarl/go-bindata-assetfs"
 	"github.com/gorilla/websocket"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 type rtinfo struct {
@@ -67,7 +69,7 @@ type rtinfo struct {
 
 type dashboard struct {
 	endpoint  string
-	rtinfo    rtinfo
+	rtinfo    *rtinfo
 	wsclients map[string]*websocket.Conn
 }
 
@@ -95,15 +97,15 @@ func (d *dashboard) Poll() {
 			continue
 		}
 
+		collector.SetInfo(d.rtinfo)
 		d.broadcast(d.rtinfo)
-
 	}
 }
 
-func wspayload(conn *websocket.Conn, data rtinfo) error {
+func wspayload(conn *websocket.Conn, data *rtinfo) error {
 	content := struct {
-		MessageType string `json:"type"`
-		Payload     rtinfo `json:"payload"`
+		MessageType string  `json:"type"`
+		Payload     *rtinfo `json:"payload"`
 	}{
 		"rtinfo",
 		data,
@@ -112,7 +114,7 @@ func wspayload(conn *websocket.Conn, data rtinfo) error {
 	return conn.WriteJSON(content)
 }
 
-func (d *dashboard) broadcast(data rtinfo) {
+func (d *dashboard) broadcast(data *rtinfo) {
 	if len(d.wsclients) <= 0 {
 		return
 	}
@@ -153,18 +155,28 @@ func wshandler(dashboard *dashboard) func(w http.ResponseWriter, r *http.Request
 	}
 }
 
-var endpoint = flag.String("endpoint", "http://localhost:8089/json", "rtinfo daemon address")
-var addr = flag.String("addr", ":8091", "http server address")
+var (
+	endpoint  = flag.String("endpoint", "http://localhost:8089/json", "rtinfo daemon address")
+	addr      = flag.String("addr", ":8091", "http server address")
+	collector *rtinfoCollector
+)
 
 func main() {
 	flag.Parse()
 	dashboard := newDashboard(*endpoint)
 	go dashboard.Poll()
 
+	collector = newRtinfoCollector()
+	prometheus.MustRegister(collector)
+	// reg := prometheus.NewRegistry()
+	// reg.MustRegister(collector)
+
 	http.HandleFunc("/ws", wshandler(dashboard))
+	http.Handle("/metrics", promhttp.Handler())
 	http.Handle("/",
 		http.FileServer(
 			&assetfs.AssetFS{Asset: Asset, AssetDir: AssetDir, AssetInfo: AssetInfo, Prefix: "../static"}))
+
 	if err := http.ListenAndServe(*addr, nil); err != nil {
 		log.Println(err)
 	}
