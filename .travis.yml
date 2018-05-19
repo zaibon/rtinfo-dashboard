@@ -1,0 +1,10 @@
+language: go
+
+install:
+  - go get -u github.com/jteeuwen/go-bindata/...
+
+script:
+  - cd wserver-go; make test
+
+after_success:
+  - bash <(curl -s https://codecov.io/bash)

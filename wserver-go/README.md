@@ -1,4 +1,4 @@
-# rtindo-dashboard (go)
+# rtindo-dashboard (go) [![Build Status](https://travis-ci.com/zaibon/rtinfo-dashboard.svg?branch=master)](https://travis-ci.com/zaibon/rtinfo-dashboard)
 This a go-lang webserver/websocket-server which embeds the web pages of the dashboard in the binary.
 The goal is to make the dashboard really easy to deploy and self-contained.
 
