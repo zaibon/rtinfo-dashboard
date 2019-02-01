@@ -5,9 +5,15 @@ generate:
 	go generate
 
 build: generate
-	go build -o rtinfo-dashboard
+	CGO_ENABLED=0 go build -ldflags '-extldflags "-static"' -o rtinfo-dashboard
+
+docker: build
+	docker build -t zaibon/rtinfo-dashboard .
 
 test: generate
 	go test -race -coverprofile=coverage.txt -covermode=atomic $(shell go list)
 
-.PHONY: install build test rtinfo-dashboard
+clean:
+	rm -f rtinfo-dashboard bindata.go
+
+.PHONY: install build docker test rtinfo-dashboard clean
